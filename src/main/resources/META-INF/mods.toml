@@ -1,18 +1,14 @@
-
 # Loader Metadata
-modLoader="javafml" # mandatory
-loaderVersion="[31,)" # mandatory
+modLoader="neoforge" # mandatory
+loaderVersion="[4,)" # mandatory
 issueTrackerURL="https://github.com/alcatrazEscapee/ore-veins/issues" # optional
 
 # Ore Veins
 [[mods]] # mandatory
     modId="oreveins" # mandatory
-    version="${file.jarVersion}" # mandatory
+    version="${mod_version}" # mandatory
     displayName="Realistic Ore Veins" # mandatory
-    #updateJSONURL="http://myurl.me/" #optional
     displayURL="https://www.curseforge.com/minecraft/mc-mods/realistic-ore-veins" #optional
-    #logoFile="examplemod.png" #optional
-    #credits="" #optional
     authors="AlcatrazEscapee" #optional
     description='''
     This is a Minecraft mod to add realistically shaped veins of ore to your world. Useful for custom maps, mod packs, or just a different survival experience. Everything is fully configurable via json, meaning you can have ore veins of whatever type of shape or size you want.
@@ -22,15 +18,15 @@ issueTrackerURL="https://github.com/alcatrazEscapee/ore-veins/issues" # optional
 
 # dependencies
 [[dependencies.oreveins]]
-    modId="forge"
+    modId="neoforge"
     mandatory=true
-    versionRange="[31,)"
+    versionRange="[21.1.0,)"
     ordering="NONE"
     side="BOTH"
 
 [[dependencies.oreveins]]
     modId="minecraft"
     mandatory=true
-    versionRange="[1.15.2,)"
+    versionRange="[1.21.1,)"
     ordering="NONE"
     side="BOTH"
