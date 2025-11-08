@@ -5,30 +5,36 @@
 
 package com.alcatrazescapee.oreveins;
 
+import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import net.minecraft.world.gen.GenerationStage;
-import net.minecraft.world.gen.feature.ConfiguredFeature;
-import net.minecraft.world.gen.feature.NoFeatureConfig;
-import net.minecraft.world.gen.placement.IPlacementConfig;
-import net.minecraft.world.gen.placement.Placement;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.DeferredWorkQueue;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.level.levelgen.GenerationStep;
+import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
+import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
+import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.minecraft.world.level.levelgen.placement.PlacementModifier;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfigEvent;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.world.BiomeModifications;
+import net.neoforged.neoforge.common.world.BiomeSelectors;
+import net.neoforged.neoforge.event.AddReloadListenerEvent;
+import net.neoforged.neoforge.registries.RegisterEvent;
 
 import com.alcatrazescapee.oreveins.world.ModFeatures;
 import com.alcatrazescapee.oreveins.world.VanillaFeatureManager;
+import com.alcatrazescapee.oreveins.world.vein.VeinManager;
 
 import static com.alcatrazescapee.oreveins.OreVeins.MOD_ID;
 
 @Mod(MOD_ID)
-public class OreVeins
+public final class OreVeins
 {
     public static final String MOD_ID = "oreveins";
 
@@ -38,41 +44,50 @@ public class OreVeins
     {
         LOGGER.debug("Constructing");
 
-        // Setup config
         Config.register();
 
-        // Register event handlers
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+        modEventBus.addListener(this::setup);
+        modEventBus.addListener(this::registerWorldGen);
+        modEventBus.addListener(this::onAddReloadListeners);
+        modEventBus.addListener(this::onLoadConfig);
 
-        modEventBus.register(this);
         ModFeatures.FEATURES.register(modEventBus);
 
-        MinecraftForge.EVENT_BUS.register(ForgeEventHandler.INSTANCE);
+        NeoForge.EVENT_BUS.register(ForgeEventHandler.INSTANCE);
     }
 
-    @SubscribeEvent
-    @SuppressWarnings("deprecation")
-    public void setup(final FMLCommonSetupEvent event)
+    private void setup(final FMLCommonSetupEvent event)
     {
         LOGGER.debug("Setup");
 
-        // World Gen - needs to be ran on main thread to avoid concurrency errors with multiple mods trying to do the same ore generation modifications.
-        // Forge fix your stuff and either make not deprecate it or add an alternative.
-        DeferredWorkQueue.runLater(() -> {
-            ForgeRegistries.BIOMES.forEach(biome -> {
-                ConfiguredFeature<?, ?> feature = ModFeatures.VEINS.get().withConfiguration(new NoFeatureConfig()).withPlacement(Placement.NOPE.configure(IPlacementConfig.NO_PLACEMENT_CONFIG));
-                biome.addFeature(GenerationStage.Decoration.UNDERGROUND_ORES, feature);
-            });
+        event.enqueueWork(() -> {
+            BiomeModifications.addFeature(BiomeSelectors.all(), GenerationStep.Decoration.UNDERGROUND_ORES, ModFeatures.PLACED_VEINS);
 
             VanillaFeatureManager.onConfigReloading();
         });
     }
 
-    @SubscribeEvent
-    public void onLoadConfig(final ModConfig.Reloading event)
+    private void registerWorldGen(final RegisterEvent event)
+    {
+        event.register(Registries.CONFIGURED_FEATURE, helper -> helper.register(ModFeatures.CONFIGURED_VEINS,
+            new ConfiguredFeature<>(ModFeatures.VEINS.get(), NoneFeatureConfiguration.INSTANCE)));
+        event.register(Registries.PLACED_FEATURE, helper -> {
+            HolderLookup.RegistryLookup<ConfiguredFeature<?, ?>> lookup = helper.lookup(Registries.CONFIGURED_FEATURE).orElseThrow();
+            Holder<ConfiguredFeature<?, ?>> configured = lookup.getOrThrow(ModFeatures.CONFIGURED_VEINS);
+            helper.register(ModFeatures.PLACED_VEINS, new PlacedFeature(configured, List.<PlacementModifier>of()));
+        });
+    }
+
+    private void onAddReloadListeners(final AddReloadListenerEvent event)
+    {
+        event.addListener(VeinManager.INSTANCE);
+    }
+
+    private void onLoadConfig(final ModConfigEvent.Reloading event)
     {
         LOGGER.debug("Reloading config - reevaluating vanilla ore vein settings");
-        if (event.getConfig().getType() == ModConfig.Type.SERVER)
+        if (event.getConfig().getType().isServer())
         {
             VanillaFeatureManager.onConfigReloading();
         }
