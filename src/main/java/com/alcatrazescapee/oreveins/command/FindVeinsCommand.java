@@ -8,16 +8,16 @@ package com.alcatrazescapee.oreveins.command;
 import java.util.List;
 
 import com.google.gson.JsonParseException;
-import net.minecraft.command.CommandSource;
-import net.minecraft.command.Commands;
-import net.minecraft.command.ISuggestionProvider;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentUtils;
-import net.minecraft.util.text.TextFormatting;
-import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentUtils;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 
 import com.alcatrazescapee.oreveins.world.VeinsFeature;
 import com.alcatrazescapee.oreveins.world.vein.Vein;
@@ -31,14 +31,14 @@ import static com.alcatrazescapee.oreveins.OreVeins.MOD_ID;
 
 public final class FindVeinsCommand
 {
-    private static final String TP_MESSAGE = "{\"text\":\"" + TextFormatting.BLUE + "[Click to Teleport]" + TextFormatting.RESET + "\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/tp %d %d %d\"}}";
+    private static final String TP_MESSAGE = "{\"text\":\"" + ChatFormatting.BLUE + "[Click to Teleport]" + ChatFormatting.RESET + "\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/tp %d %d %d\"}}";
 
-    public static void register(CommandDispatcher<CommandSource> dispatcher)
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher)
     {
         dispatcher.register(
-            Commands.literal("findveins").requires(source -> source.hasPermissionLevel(2))
+            Commands.literal("findveins").requires(source -> source.hasPermission(2))
                 .then(Commands.argument("type", new VeinTypeArgument())
-                    .suggests((context, builder) -> ISuggestionProvider.suggestIterable(VeinManager.INSTANCE.getKeys(), builder))
+                    .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(VeinManager.INSTANCE.getKeys(), builder))
                     .then(Commands.argument("radius", IntegerArgumentType.integer(0, 250))
                         .executes(cmd -> findVeins(cmd.getSource(), VeinTypeArgument.getVein(cmd, "type"), IntegerArgumentType.getInteger(cmd, "radius")))
                     )
@@ -46,33 +46,34 @@ public final class FindVeinsCommand
         );
     }
 
-    private static int findVeins(CommandSource source, ResourceLocation veinName, int radius) throws CommandSyntaxException
+    private static int findVeins(CommandSourceStack source, ResourceLocation veinName, int radius) throws CommandSyntaxException
     {
-        final BlockPos pos = new BlockPos(source.getPos());
+        final BlockPos pos = BlockPos.containing(source.getPosition());
         final int chunkX = pos.getX() >> 4, chunkZ = pos.getZ() >> 4;
-        final List<Vein<?>> veins = VeinsFeature.getNearbyVeins(chunkX, chunkZ, source.getWorld().getSeed(), radius);
+        final List<Vein<?>> veins = VeinsFeature.getNearbyVeins(chunkX, chunkZ, source.getLevel().getSeed(), radius);
         final VeinType<?> type = VeinManager.INSTANCE.getVein(veinName);
         if (type == null)
         {
-            source.sendErrorMessage(new TranslationTextComponent(MOD_ID + ".command.unknown_vein", veinName.toString()));
+            source.sendFailure(Component.translatable(MOD_ID + ".command.unknown_vein", veinName.toString()));
         }
 
         // Search for veins matching type
         //noinspection EqualsBetweenInconvertibleTypes
         veins.removeIf(x -> !x.getType().equals(type));
-        source.sendFeedback(new TranslationTextComponent(MOD_ID + ".command.veins_found"), true);
+        source.sendSuccess(() -> Component.translatable(MOD_ID + ".command.veins_found"), true);
         for (Vein<?> vein : veins)
         {
-            ITextComponent resultText = new TranslationTextComponent(MOD_ID + ".command.vein_info", vein.toString());
-            if (source.getEntity() instanceof PlayerEntity)
+            MutableComponent resultText = Component.translatable(MOD_ID + ".command.vein_info", vein.toString());
+            if (source.getEntity() instanceof ServerPlayer player)
             {
                 BlockPos veinPos = vein.getPos();
                 try
                 {
-                    ITextComponent tpText = ITextComponent.Serializer.fromJsonLenient(String.format(TP_MESSAGE, veinPos.getX(), veinPos.getY(), veinPos.getZ()));
+                    Component tpText = Component.Serializer.fromJson(String.format(TP_MESSAGE, veinPos.getX(), veinPos.getY(), veinPos.getZ()));
                     if (tpText != null)
                     {
-                        source.getEntity().sendMessage(TextComponentUtils.updateForEntity(source, resultText.appendSibling(tpText), source.getEntity(), 0));
+                        MutableComponent message = resultText.copy().append(tpText);
+                        player.sendSystemMessage(ComponentUtils.updateForEntity(source, message, player, 0));
                     }
                 }
                 catch (JsonParseException e) { /* Ignore, it shouldn't happen */ }
