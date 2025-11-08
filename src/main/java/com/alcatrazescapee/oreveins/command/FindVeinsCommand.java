@@ -69,7 +69,7 @@ public final class FindVeinsCommand
                 BlockPos veinPos = vein.getPos();
                 try
                 {
-                    Component tpText = Component.Serializer.fromJson(String.format(TP_MESSAGE, veinPos.getX(), veinPos.getY(), veinPos.getZ()));
+                    Component tpText = Component.Serializer.fromJson(String.format(TP_MESSAGE, veinPos.getX(), veinPos.getY(), veinPos.getZ()), source.registryAccess());
                     if (tpText != null)
                     {
                         MutableComponent message = resultText.copy().append(tpText);

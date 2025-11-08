@@ -40,7 +40,7 @@ public interface IDimensionRule extends Predicate<IDimensionRule.Context>
         @Override
         protected IDimensionRule createSingleRule(String name)
         {
-            final ResourceKey<Level> levelKey = ResourceKey.create(Registries.DIMENSION, new ResourceLocation(name));
+            final ResourceKey<Level> levelKey = ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(name));
             return context -> context.dimensionKey().equals(levelKey);
         }
 

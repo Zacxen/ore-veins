@@ -9,4 +9,4 @@ package com.alcatrazescapee.oreveins.util.json;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
-import mcp.MethodsReturnNonnullByDefault;
+import com.alcatrazescapee.oreveins.util.annotation.MethodsReturnNonnullByDefault;
