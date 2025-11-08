@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.google.gson.*;
-import net.minecraft.util.JSONUtils;
+import net.minecraft.util.GsonHelper;
 
 import com.alcatrazescapee.oreveins.world.vein.*;
 
@@ -36,7 +36,7 @@ public enum VeinTypeDeserializer implements JsonDeserializer<VeinType<?>>
     public VeinType<?> deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException
     {
         JsonObject obj = json.getAsJsonObject();
-        String veinTypeName = JSONUtils.getString(obj, "type");
+        String veinTypeName = GsonHelper.getAsString(obj, "type");
         Factory factory = factories.get(veinTypeName);
         if (factory == null)
         {

@@ -15,16 +15,17 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.resources.JsonReloadListener;
-import net.minecraft.profiler.IProfiler;
-import net.minecraft.resources.IResourceManager;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.crafting.CraftingHelper;
 
 import com.alcatrazescapee.oreveins.command.ClearWorldCommand;
@@ -39,7 +40,7 @@ import com.alcatrazescapee.oreveins.world.rule.IBiomeRule;
 import com.alcatrazescapee.oreveins.world.rule.IDimensionRule;
 import com.alcatrazescapee.oreveins.world.rule.IRule;
 
-public class VeinManager extends JsonReloadListener
+public class VeinManager extends SimpleJsonResourceReloadListener
 {
     public static final VeinManager INSTANCE;
 
@@ -95,12 +96,20 @@ public class VeinManager extends JsonReloadListener
     }
 
     @Override
-    protected void apply(Map<ResourceLocation, JsonObject> resources, IResourceManager manager, IProfiler profiler)
+    protected void apply(Map<ResourceLocation, JsonElement> resources, ResourceManager manager, ProfilerFiller profiler)
     {
-        for (Map.Entry<ResourceLocation, JsonObject> entry : resources.entrySet())
+        veins.clear();
+        for (Map.Entry<ResourceLocation, JsonElement> entry : resources.entrySet())
         {
             ResourceLocation name = entry.getKey();
-            JsonObject json = entry.getValue();
+            JsonElement element = entry.getValue();
+            if (!element.isJsonObject())
+            {
+                LOGGER.warn("Skipping loading vein '{}' because its data was not a JSON object", name);
+                continue;
+            }
+
+            JsonObject json = element.getAsJsonObject();
             try
             {
                 if (CraftingHelper.processConditions(json, "conditions"))

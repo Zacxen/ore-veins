@@ -12,11 +12,11 @@ import java.util.function.Predicate;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.tags.Tag;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.registries.ForgeRegistries;
 
 public enum BlockStatePredicateDeserializer implements JsonDeserializer<Predicate<BlockState>>
@@ -51,27 +51,19 @@ public enum BlockStatePredicateDeserializer implements JsonDeserializer<Predicat
         if (value.startsWith("#"))
         {
             String tagName = value.substring(1);
-            Tag<Block> tag = BlockTags.getCollection().get(new ResourceLocation(tagName));
-            if (tag != null)
+            TagKey<Block> tagKey = TagKey.create(Registries.BLOCK, new ResourceLocation(tagName));
+            if (ForgeRegistries.BLOCKS.tags().isKnownTagName(tagKey))
             {
-                return stateIn -> tag.contains(stateIn.getBlock());
+                return stateIn -> stateIn.is(tagKey);
             }
-            else
-            {
-                throw new JsonParseException("Unknown tag: " + tag);
-            }
+            throw new JsonParseException("Unknown tag: " + tagName);
         }
-        else
+
+        Block block = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(value));
+        if (block != null)
         {
-            Block block = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(value));
-            if (block != null)
-            {
-                return stateIn -> stateIn.getBlock() == block;
-            }
-            else
-            {
-                throw new JsonParseException("Unknown block: " + value);
-            }
+            return stateIn -> stateIn.getBlock() == block;
         }
+        throw new JsonParseException("Unknown block: " + value);
     }
 }

@@ -8,11 +8,12 @@ package com.alcatrazescapee.oreveins.util.json;
 import java.lang.reflect.Type;
 
 import com.google.gson.*;
-import net.minecraft.block.BlockState;
-import net.minecraft.command.arguments.BlockStateParser;
+import net.minecraft.commands.arguments.blocks.BlockStateParser;
+import net.minecraft.world.level.block.state.BlockState;
 
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.neoforged.neoforge.registries.ForgeRegistries;
 
 public enum BlockStateDeserializer implements JsonDeserializer<BlockState>
 {
@@ -36,20 +37,15 @@ public enum BlockStateDeserializer implements JsonDeserializer<BlockState>
 
     public BlockState readBlockState(String block)
     {
-        BlockStateParser parser = parseBlockState(block);
-        if (parser.getState() != null)
-        {
-            return parser.getState();
-        }
-        throw new JsonParseException("Not a block state: " + block);
+        return parseBlockState(block).blockState();
     }
 
-    public BlockStateParser parseBlockState(String block)
+    public BlockStateParser.BlockResult parseBlockState(String block)
     {
         StringReader reader = new StringReader(block);
         try
         {
-            return new BlockStateParser(reader, true).parse(false);
+            return BlockStateParser.parseForBlock(ForgeRegistries.BLOCKS.getHolderLookup(), reader, true);
         }
         catch (CommandSyntaxException e)
         {
@@ -61,7 +57,7 @@ public enum BlockStateDeserializer implements JsonDeserializer<BlockState>
     {
         try
         {
-            new BlockStateParser(new StringReader(block), true).parse(false);
+            BlockStateParser.parseForBlock(ForgeRegistries.BLOCKS.getHolderLookup(), new StringReader(block), true);
             return true;
         }
         catch (CommandSyntaxException e)
