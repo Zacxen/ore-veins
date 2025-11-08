@@ -8,7 +8,6 @@ package com.alcatrazescapee.oreveins.world.vein;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Random;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -16,9 +15,10 @@ import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
-import net.minecraft.block.BlockState;
-import net.minecraft.util.JSONUtils;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.GsonHelper;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class MultipleVeinType extends VeinType<Vein<?>>
 {
@@ -28,7 +28,7 @@ public class MultipleVeinType extends VeinType<Vein<?>>
     {
         super(json, context);
 
-        types = context.deserialize(JSONUtils.getJsonArray(json, "veins"), new TypeToken<List<VeinType<?>>>() {}.getType());
+        types = context.deserialize(GsonHelper.getAsJsonArray(json, "veins"), new TypeToken<List<VeinType<?>>>() {}.getType());
         if (types.size() < 2)
         {
             throw new IllegalStateException("Multiple vein must have at least two child veins!");
@@ -36,7 +36,7 @@ public class MultipleVeinType extends VeinType<Vein<?>>
     }
 
     @Override
-    public BlockState getStateToGenerate(Vein<?> vein, BlockPos pos, Random random)
+    public BlockState getStateToGenerate(Vein<?> vein, BlockPos pos, RandomSource random)
     {
         throw new IllegalStateException("This should never be called directly");
     }
@@ -49,7 +49,7 @@ public class MultipleVeinType extends VeinType<Vein<?>>
 
     @Nullable
     @Override
-    public Indicator getIndicator(Random random)
+    public Indicator getIndicator(RandomSource random)
     {
         throw new IllegalStateException("This should never be called directly");
     }
@@ -67,7 +67,7 @@ public class MultipleVeinType extends VeinType<Vein<?>>
     }
 
     @Override
-    public void createVeins(List<Vein<?>> veins, int chunkX, int chunkZ, Random random)
+    public void createVeins(List<Vein<?>> veins, int chunkX, int chunkZ, RandomSource random)
     {
         BlockPos centerPos = defaultStartPos(chunkX, chunkZ, random);
         List<Vein<?>> innerVeins = new ArrayList<>();

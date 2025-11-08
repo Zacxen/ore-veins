@@ -7,19 +7,22 @@ package com.alcatrazescapee.oreveins.world;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.stream.Collectors;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IWorld;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.gen.ChunkGenerator;
-import net.minecraft.world.gen.GenerationSettings;
-import net.minecraft.world.gen.Heightmap;
-import net.minecraft.world.gen.feature.Feature;
-import net.minecraft.world.gen.feature.NoFeatureConfig;
-import net.minecraftforge.common.util.Lazy;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.BlockPos.MutableBlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
+import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
+import net.minecraft.world.level.Level;
 
 import com.alcatrazescapee.oreveins.Config;
 import com.alcatrazescapee.oreveins.world.vein.Indicator;
@@ -27,12 +30,13 @@ import com.alcatrazescapee.oreveins.world.vein.Vein;
 import com.alcatrazescapee.oreveins.world.vein.VeinManager;
 import com.alcatrazescapee.oreveins.world.vein.VeinType;
 
-import static net.minecraft.world.gen.Heightmap.Type.OCEAN_FLOOR_WG;
-import static net.minecraft.world.gen.Heightmap.Type.WORLD_SURFACE_WG;
+import com.mojang.serialization.Codec;
 
-public class VeinsFeature extends Feature<NoFeatureConfig>
+import static net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG;
+import static net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG;
+
+public class VeinsFeature extends Feature<NoneFeatureConfiguration>
 {
-    private static final Random RANDOM = new Random();
     private static int CHUNK_RADIUS = 0;
 
     public static void resetChunkRadius()
@@ -55,14 +59,14 @@ public class VeinsFeature extends Feature<NoFeatureConfig>
 
     private static void getVeinsAtChunk(List<Vein<?>> veins, int chunkX, int chunkZ, long worldSeed)
     {
-        RANDOM.setSeed(worldSeed + chunkX * 341873128712L + chunkZ * 132897987541L);
+        RandomSource random = RandomSource.create(worldSeed + chunkX * 341873128712L + chunkZ * 132897987541L);
         for (VeinType<?> type : VeinManager.INSTANCE.getVeins())
         {
             for (int i = 0; i < type.getCount(); i++)
             {
-                if (RANDOM.nextInt(type.getRarity()) == 0)
+                if (random.nextInt(type.getRarity()) == 0)
                 {
-                    type.createVeins(veins, chunkX, chunkZ, RANDOM);
+                    type.createVeins(veins, chunkX, chunkZ, random);
                 }
             }
         }
@@ -70,47 +74,53 @@ public class VeinsFeature extends Feature<NoFeatureConfig>
 
     public VeinsFeature()
     {
-        super(NoFeatureConfig::deserialize);
+        super(Codec.unit(NoneFeatureConfiguration.INSTANCE));
     }
 
     @Override
-    public boolean place(IWorld worldIn, ChunkGenerator<? extends GenerationSettings> generator, Random rand, BlockPos pos, NoFeatureConfig config)
+    public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context)
     {
-        // Get all nearby veins, filtering out those which are in the wrong dimension
-        List<Vein<?>> veins = getNearbyVeins(pos.getX() >> 4, pos.getZ() >> 4, worldIn.getSeed(), CHUNK_RADIUS)
-            .stream()
-            .filter(vein -> vein.getType().matchesDimension(worldIn.getDimension().getType()))
-                .collect(Collectors.toList());
-        for (int x = pos.getX(); x < 16 + pos.getX(); x++)
-        {
-            for (int z = pos.getZ(); z < 16 + pos.getZ(); z++)
-            {
-                // Do checks here that are specific to the the horizontal position, not the vertical one
-                // We load the biome only once and cache it for lazy purposes
-                BlockPos biomePos = new BlockPos(x, 0, z);
-                Lazy<Biome> lazyBiome = Lazy.of(() -> worldIn.getBiome(biomePos));
+        WorldGenLevel level = context.level();
+        RandomSource random = context.random();
+        BlockPos origin = context.origin();
+        Holder<DimensionType> dimensionType = level.dimensionType();
+        ResourceKey<Level> dimensionKey = level.dimension();
 
-                // Then we perform the same checks for each vein
+        List<Vein<?>> veins = getNearbyVeins(origin.getX() >> 4, origin.getZ() >> 4, level.getSeed(), CHUNK_RADIUS)
+            .stream()
+            .filter(vein -> vein.getType().matchesDimension(dimensionType, dimensionKey))
+            .collect(Collectors.toList());
+
+        MutableBlockPos mutablePos = new MutableBlockPos();
+        MutableBlockPos surfacePos = new MutableBlockPos();
+
+        for (int x = origin.getX(); x < origin.getX() + 16; x++)
+        {
+            for (int z = origin.getZ(); z < origin.getZ() + 16; z++)
+            {
+                mutablePos.set(x, level.getMinBuildHeight(), z);
+                Holder<Biome> biomeHolder = level.getBiome(mutablePos);
+
                 for (Vein<?> vein : veins)
                 {
-                    if (vein.getType().matchesBiome(lazyBiome) && vein.inRange(x, z))
+                    if (vein.getType().matchesBiome(biomeHolder) && vein.inRange(x, z))
                     {
-                        Indicator veinIndicator = vein.getType().getIndicator(rand);
+                        Indicator veinIndicator = vein.getType().getIndicator(random);
                         boolean canGenerateIndicator = false;
 
                         for (int y = vein.getType().getMinY(); y <= vein.getType().getMaxY(); y++)
                         {
-                            BlockPos posAt = new BlockPos(x, y, z);
-                            if (rand.nextFloat() < vein.getChanceToGenerate(posAt))
+                            mutablePos.set(x, y, z);
+                            if (random.nextFloat() < vein.getChanceToGenerate(mutablePos))
                             {
-                                if (vein.getType().canGenerateAt(worldIn, posAt))
+                                if (vein.getType().canGenerateAt(level, mutablePos))
                                 {
-                                    BlockState oreState = vein.getStateToGenerate(pos, rand);
-                                    setBlockState(worldIn, posAt, oreState);
+                                    BlockState oreState = vein.getStateToGenerate(mutablePos, random);
+                                    setBlock(level, mutablePos, oreState);
                                     if (veinIndicator != null && !canGenerateIndicator)
                                     {
-                                        Heightmap.Type heightmap = veinIndicator.shouldIgnoreLiquids() ? OCEAN_FLOOR_WG : WORLD_SURFACE_WG;
-                                        int depth = worldIn.getHeight(heightmap, x, z) - y;
+                                        Heightmap.Types heightmap = veinIndicator.shouldIgnoreLiquids() ? OCEAN_FLOOR_WG : WORLD_SURFACE_WG;
+                                        int depth = level.getHeight(heightmap, x, z) - y;
                                         if (depth < 0)
                                         {
                                             depth = -depth;
@@ -123,22 +133,23 @@ public class VeinsFeature extends Feature<NoFeatureConfig>
 
                         if (veinIndicator != null && canGenerateIndicator)
                         {
-                            if (rand.nextInt(veinIndicator.getRarity()) == 0)
+                            if (random.nextInt(veinIndicator.getRarity()) == 0)
                             {
-                                Heightmap.Type heightmap = veinIndicator.shouldIgnoreLiquids() ? OCEAN_FLOOR_WG : WORLD_SURFACE_WG;
-                                BlockPos posAt = worldIn.getHeight(heightmap, new BlockPos(x, 0, z));
+                                Heightmap.Types heightmap = veinIndicator.shouldIgnoreLiquids() ? OCEAN_FLOOR_WG : WORLD_SURFACE_WG;
+                                surfacePos.set(x, 0, z);
+                                BlockPos topPos = level.getHeightmapPos(heightmap, surfacePos);
+                                surfacePos.set(topPos);
 
-                                BlockState indicatorState = veinIndicator.getStateToGenerate(rand);
-                                BlockState stateAt = worldIn.getBlockState(posAt);
+                                BlockState indicatorState = veinIndicator.getStateToGenerate(random);
 
-                                // This happens after, as we replace what was the "under_state"
                                 if (veinIndicator.shouldReplaceSurface())
                                 {
-                                    posAt = posAt.down();
+                                    surfacePos.move(0, -1, 0);
                                 }
-                                if (indicatorState.isValidPosition(worldIn, posAt) && (veinIndicator.shouldIgnoreLiquids() || !stateAt.getMaterial().isLiquid()) && veinIndicator.validUnderState(worldIn.getBlockState(posAt.down())))
+                                BlockPos belowPos = surfacePos.below();
+                                if (indicatorState.canSurvive(level, surfacePos) && (veinIndicator.shouldIgnoreLiquids() || level.getFluidState(surfacePos).isEmpty()) && veinIndicator.validUnderState(level.getBlockState(belowPos)))
                                 {
-                                    setBlockState(worldIn, posAt, indicatorState);
+                                    setBlock(level, surfacePos, indicatorState);
                                 }
                             }
                         }

@@ -5,13 +5,12 @@
 
 package com.alcatrazescapee.oreveins.world.vein;
 
-import java.util.Random;
-
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
-import net.minecraft.util.JSONUtils;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.GsonHelper;
+import net.minecraft.util.RandomSource;
 
 import static com.alcatrazescapee.oreveins.world.vein.ClusterVeinType.VeinCluster;
 
@@ -22,7 +21,7 @@ public class ClusterVeinType extends SingleVeinType<VeinCluster>
     public ClusterVeinType(JsonObject obj, JsonDeserializationContext context) throws JsonParseException
     {
         super(obj, context);
-        clusters = JSONUtils.getInt(obj, "clusters", 3);
+        clusters = GsonHelper.getAsInt(obj, "clusters", 3);
         if (clusters <= 0)
         {
             throw new JsonParseException("Clusters must be > 0. If you set clusters=0 you should just use the sphere vein.");
@@ -48,13 +47,16 @@ public class ClusterVeinType extends SingleVeinType<VeinCluster>
             final float radius = (float) ((dx + dz) / (horizontalSize * horizontalSize * c.size) +
                 dy / (verticalSize * verticalSize * c.size));
 
-            if (shortestRadius == -1 || radius < shortestRadius) shortestRadius = radius;
+            if (shortestRadius == -1 || radius < shortestRadius)
+            {
+                shortestRadius = radius;
+            }
         }
         return 0.005f * density * (1.0f - shortestRadius);
     }
 
     @Override
-    public VeinCluster createVein(int chunkX, int chunkZ, Random random)
+    public VeinCluster createVein(int chunkX, int chunkZ, RandomSource random)
     {
         return new VeinCluster(this, defaultStartPos(chunkX, chunkZ, random), random);
     }
@@ -63,21 +65,20 @@ public class ClusterVeinType extends SingleVeinType<VeinCluster>
     {
         private final Cluster[] spawnPoints;
 
-        private VeinCluster(ClusterVeinType type, BlockPos pos, Random rand)
+        private VeinCluster(ClusterVeinType type, BlockPos pos, RandomSource random)
         {
             super(type, pos);
 
-            int clusters = 1 + type.clusters; // main cluster + smaller outside ones
-            spawnPoints = new Cluster[clusters];
-            spawnPoints[0] = new Cluster(pos, 0.6f + 0.2f * rand.nextFloat());
-            for (int i = 1; i < clusters; i++)
+            int clusterCount = 1 + type.clusters; // main cluster + smaller outside ones
+            spawnPoints = new Cluster[clusterCount];
+            spawnPoints[0] = new Cluster(pos, 0.6f + 0.2f * random.nextFloat());
+            for (int i = 1; i < clusterCount; i++)
             {
-                final BlockPos clusterPos = pos.add(
-                    type.horizontalSize * (0.3f - 0.6f * rand.nextFloat()),
-                    type.verticalSize * (0.3f - 0.6f * rand.nextFloat()),
-                    type.horizontalSize * (0.3f - 0.6f * rand.nextFloat())
-                );
-                spawnPoints[i] = new Cluster(clusterPos, 0.2f + 0.5f * rand.nextFloat());
+                final double offsetX = type.horizontalSize * (0.3f - 0.6f * random.nextFloat());
+                final double offsetY = type.verticalSize * (0.3f - 0.6f * random.nextFloat());
+                final double offsetZ = type.horizontalSize * (0.3f - 0.6f * random.nextFloat());
+                final BlockPos clusterPos = BlockPos.containing(pos.getX() + offsetX, pos.getY() + offsetY, pos.getZ() + offsetZ);
+                spawnPoints[i] = new Cluster(clusterPos, 0.2f + 0.5f * random.nextFloat());
             }
         }
 

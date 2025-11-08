@@ -8,21 +8,23 @@ package com.alcatrazescapee.oreveins.world.vein;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
-import net.minecraft.block.BlockState;
-import net.minecraft.util.JSONUtils;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockReader;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.dimension.DimensionType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.GsonHelper;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.dimension.DimensionType;
 
 import com.alcatrazescapee.oreveins.Config;
 import com.alcatrazescapee.oreveins.util.collections.IWeightedList;
@@ -50,33 +52,33 @@ public abstract class VeinType<V extends Vein<?>>
 
     protected VeinType(JsonObject json, JsonDeserializationContext context) throws JsonParseException
     {
-        count = JSONUtils.getInt(json, "count", 1);
+        count = GsonHelper.getAsInt(json, "count", 1);
         if (count <= 0)
         {
             throw new JsonParseException("Count must be > 0.");
         }
-        rarity = JSONUtils.getInt(json, "rarity", 10);
+        rarity = GsonHelper.getAsInt(json, "rarity", 10);
         if (rarity <= 0)
         {
-            throw new JsonParseException("Count must be > 0.");
+            throw new JsonParseException("Rarity must be > 0.");
         }
-        minY = JSONUtils.getInt(json, "min_y", 16);
-        maxY = JSONUtils.getInt(json, "max_y", 64);
+        minY = GsonHelper.getAsInt(json, "min_y", 16);
+        maxY = GsonHelper.getAsInt(json, "max_y", 64);
         if (minY < 0 || maxY > 256 || minY > maxY)
         {
-            throw new JsonParseException("Min Y and Max Y must be within [0, 256], and Min Y must be <= Max Y.");
+            throw new JsonParseException("Min Y and Max Y must be within the configured world height, and Min Y must be <= Max Y.");
         }
-        verticalSize = JSONUtils.getInt(json, "vertical_size", 8);
+        verticalSize = GsonHelper.getAsInt(json, "vertical_size", 8);
         if (verticalSize <= 0)
         {
             throw new JsonParseException("Vertical Size must be > 0.");
         }
-        horizontalSize = JSONUtils.getInt(json, "horizontal_size", 15);
+        horizontalSize = GsonHelper.getAsInt(json, "horizontal_size", 15);
         if (horizontalSize <= 0)
         {
             throw new JsonParseException("Horizontal Size must be > 0.");
         }
-        density = JSONUtils.getInt(json, "density", 20);
+        density = GsonHelper.getAsFloat(json, "density", 20);
         if (density <= 0)
         {
             throw new JsonParseException("Density must be > 0.");
@@ -95,7 +97,7 @@ public abstract class VeinType<V extends Vein<?>>
      *
      * @return A block state
      */
-    public abstract BlockState getStateToGenerate(V vein, BlockPos pos, Random random);
+    public abstract BlockState getStateToGenerate(V vein, BlockPos pos, RandomSource random);
 
     /**
      * Gets all possible ore states spawned by this vein.
@@ -112,7 +114,7 @@ public abstract class VeinType<V extends Vein<?>>
      * @return An Indicator if it exists, or null if not
      */
     @Nullable
-    public Indicator getIndicator(Random random)
+    public Indicator getIndicator(RandomSource random)
     {
         return indicator != null ? indicator.get(random) : null;
     }
@@ -124,7 +126,7 @@ public abstract class VeinType<V extends Vein<?>>
      * @param pos   The position to generate at
      * @return if the vein can generate
      */
-    public boolean canGenerateAt(IBlockReader world, BlockPos pos)
+    public boolean canGenerateAt(BlockGetter world, BlockPos pos)
     {
         if (rules != null)
         {
@@ -166,24 +168,24 @@ public abstract class VeinType<V extends Vein<?>>
     /**
      * Check if the dimension is valid for this vein
      *
-     * @param dimension a dimension
+     * @param dimensionType the dimension type
+     * @param levelKey the level key
      * @return true if the dimension is valid
      */
-    public boolean matchesDimension(DimensionType dimension)
+    public boolean matchesDimension(Holder<DimensionType> dimensionType, ResourceKey<Level> levelKey)
     {
-        return dimensions.test(dimension);
+        return dimensions.test(new IDimensionRule.Context(dimensionType, levelKey));
     }
 
     /**
      * Check if the biome is valid for this vein
      *
-     * @param biome a biome
+     * @param biome a biome holder
      * @return true if the biome is valid
      */
-    public boolean matchesBiome(Supplier<Biome> biome)
+    public boolean matchesBiome(Holder<Biome> biome)
     {
-        // This is here to avoid querying for the biome in the case we don't need it
-        return biomeRule == IBiomeRule.DEFAULT || biomeRule.test(biome.get());
+        return biomeRule == IBiomeRule.DEFAULT || biomeRule.test(biome);
     }
 
     /**
@@ -207,9 +209,9 @@ public abstract class VeinType<V extends Vein<?>>
     }
 
     /**
-     * Gets the number of rolls for a chunk
+     * Gets the count of this vein that will spawn in each chunk
      *
-     * @return a number in [1...]
+     * @return a count
      */
     public int getCount()
     {
@@ -217,9 +219,9 @@ public abstract class VeinType<V extends Vein<?>>
     }
 
     /**
-     * Gets the rarity of this vein in a chunk
+     * Gets the rarity of this vein
      *
-     * @return a number in [1...]
+     * @return a rarity
      */
     public int getRarity()
     {
@@ -227,19 +229,33 @@ public abstract class VeinType<V extends Vein<?>>
     }
 
     /**
-     * Gets the max chunk radius that this vein needs to check
+     * Gets the density of this vein
      *
-     * @return a radius in chunks
+     * @return a density
      */
-    public int getChunkRadius()
+    public float getDensity()
     {
-        return 1 + (horizontalSize >> 4);
+        return density;
     }
 
-    @Override
-    public String toString()
+    /**
+     * Gets the vertical size of this vein
+     *
+     * @return a size in blocks
+     */
+    public int getVerticalSize()
     {
-        return String.format("[%s: Count: %d, Rarity: %d, Y: %d - %d, Size: %d / %d, Density: %2.2f", VeinManager.INSTANCE.getName(this), count, rarity, minY, maxY, horizontalSize, verticalSize, density);
+        return verticalSize;
+    }
+
+    /**
+     * Gets the horizontal size of this vein
+     *
+     * @return a size in blocks
+     */
+    public int getHorizontalSize()
+    {
+        return horizontalSize;
     }
 
     /**
@@ -255,11 +271,20 @@ public abstract class VeinType<V extends Vein<?>>
      * Creates veins for this type for a given chunk position and random.
      * This is called after rarity + chance rolls are done.
      */
-    public abstract void createVeins(List<Vein<?>> veins, int chunkX, int chunkZ, Random random);
+    public abstract void createVeins(List<Vein<?>> veins, int chunkX, int chunkZ, RandomSource random);
 
-    protected final BlockPos defaultStartPos(int chunkX, int chunkZ, Random rand)
+    /**
+     * Gets the maximum radius of this vein in chunks
+     */
+    public int getChunkRadius()
     {
-        int spawnRange = maxY - minY, minRange = minY;
+        return 1 + (horizontalSize >> 4);
+    }
+
+    protected final BlockPos defaultStartPos(int chunkX, int chunkZ, RandomSource random)
+    {
+        int spawnRange = maxY - minY;
+        int minRange = minY;
         if (Config.COMMON.avoidVeinCutoffs.get())
         {
             if (verticalSize * 2 < spawnRange)
@@ -273,6 +298,13 @@ public abstract class VeinType<V extends Vein<?>>
                 spawnRange = 1;
             }
         }
-        return new BlockPos(chunkX * 16 + rand.nextInt(16), minRange + rand.nextInt(spawnRange), chunkZ * 16 + rand.nextInt(16));
+        int y = minRange + (spawnRange > 0 ? random.nextInt(spawnRange) : 0);
+        return new BlockPos(chunkX * 16 + random.nextInt(16), y, chunkZ * 16 + random.nextInt(16));
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("[%s: Count: %d, Rarity: %d, Y: %d - %d, Size: %d / %d, Density: %2.2f", VeinManager.INSTANCE.getName(this), count, rarity, minY, maxY, horizontalSize, verticalSize, density);
     }
 }

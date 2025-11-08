@@ -9,11 +9,11 @@ import java.util.function.Predicate;
 
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
-import net.minecraft.block.BlockState;
-import net.minecraft.util.Direction;
-import net.minecraft.util.JSONUtils;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockReader;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.util.GsonHelper;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class TouchingRule implements IRule
 {
@@ -29,12 +29,12 @@ public class TouchingRule implements IRule
     }
 
     @Override
-    public boolean test(IBlockReader world, BlockPos pos)
+    public boolean test(BlockGetter world, BlockPos pos)
     {
         int matchCount = 0;
         for (Direction face : Direction.values())
         {
-            if (blockMatcher.test(world.getBlockState(pos.offset(face))))
+            if (blockMatcher.test(world.getBlockState(pos.relative(face))))
             {
                 matchCount++;
             }
@@ -53,8 +53,8 @@ public class TouchingRule implements IRule
         {
             BlockState stateToMatch = context.deserialize(json.get("block"), BlockState.class);
             Predicate<BlockState> blockMatcher = state -> state == stateToMatch;
-            int min = JSONUtils.getInt(json, "min", 1);
-            int max = JSONUtils.getInt(json, "max", 8);
+            int min = GsonHelper.getAsInt(json, "min", 1);
+            int max = GsonHelper.getAsInt(json, "max", 8);
             return new TouchingRule(blockMatcher, min, max);
         }
     }

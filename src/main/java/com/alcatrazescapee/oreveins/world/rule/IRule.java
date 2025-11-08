@@ -11,13 +11,13 @@ import java.util.Map;
 import java.util.function.BiPredicate;
 
 import com.google.gson.*;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockReader;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.BlockGetter;
 
-public interface IRule extends BiPredicate<IBlockReader, BlockPos>
+public interface IRule extends BiPredicate<BlockGetter, BlockPos>
 {
     @Override
-    boolean test(IBlockReader world, BlockPos pos);
+    boolean test(BlockGetter world, BlockPos pos);
 
     enum Deserializer implements JsonDeserializer<IRule>
     {

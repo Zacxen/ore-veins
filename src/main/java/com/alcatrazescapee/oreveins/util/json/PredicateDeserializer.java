@@ -10,8 +10,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
-import com.google.gson.*;
-import net.minecraft.util.JSONUtils;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import net.minecraft.util.GsonHelper;
 
 public abstract class PredicateDeserializer<E, T extends Predicate<E>> implements JsonDeserializer<T>
 {
@@ -30,13 +35,13 @@ public abstract class PredicateDeserializer<E, T extends Predicate<E>> implement
         if (json.isJsonObject())
         {
             JsonObject obj = json.getAsJsonObject();
-            String typeName = JSONUtils.getString(obj, "type");
+            String typeName = GsonHelper.getAsString(obj, "type");
             switch (typeName)
             {
                 case "and":
-                    return createCollectionRule(JSONUtils.getJsonArray(obj, collectionName), context, false);
+                    return createCollectionRule(GsonHelper.getAsJsonArray(obj, collectionName), context, false);
                 case "or":
-                    return createCollectionRule(JSONUtils.getJsonArray(obj, collectionName), context, true);
+                    return createCollectionRule(GsonHelper.getAsJsonArray(obj, collectionName), context, true);
                 case "not":
                     T innerRule = context.deserialize(obj.get(collectionName), elementType);
                     return createPredicate(item -> !innerRule.test(item));

@@ -5,14 +5,12 @@
 
 package com.alcatrazescapee.oreveins.world.vein;
 
-
-import java.util.Random;
-
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
-import net.minecraft.util.JSONUtils;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.GsonHelper;
+import net.minecraft.util.RandomSource;
 
 public class ConeVeinType extends SingleVeinType<Vein<?>>
 {
@@ -22,12 +20,12 @@ public class ConeVeinType extends SingleVeinType<Vein<?>>
     public ConeVeinType(JsonObject obj, JsonDeserializationContext context) throws JsonParseException
     {
         super(obj, context);
-        shape = JSONUtils.getFloat(obj, "shape", 0.5f);
-        inverted = JSONUtils.getBoolean(obj, "inverted", false);
+        shape = GsonHelper.getAsFloat(obj, "shape", 0.5f);
+        inverted = GsonHelper.getAsBoolean(obj, "inverted", false);
     }
 
     @Override
-    public Vein<?> createVein(int chunkX, int chunkZ, Random random)
+    public Vein<?> createVein(int chunkX, int chunkZ, RandomSource random)
     {
         return createDefaultVein(chunkX, chunkZ, random);
     }

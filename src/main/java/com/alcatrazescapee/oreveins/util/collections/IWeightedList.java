@@ -8,7 +8,7 @@ package com.alcatrazescapee.oreveins.util.collections;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.Random;
+import net.minecraft.util.RandomSource;
 import javax.annotation.Nonnull;
 
 public interface IWeightedList<E> extends Iterable<E>
@@ -21,7 +21,7 @@ public interface IWeightedList<E> extends Iterable<E>
             public void add(double weight, E element) {}
 
             @Override
-            public E get(Random random)
+            public E get(RandomSource random)
             {
                 return null;
             }
@@ -57,7 +57,7 @@ public interface IWeightedList<E> extends Iterable<E>
             public void add(double weight, E element) {}
 
             @Override
-            public E get(Random random)
+            public E get(RandomSource random)
             {
                 return element;
             }
@@ -91,7 +91,7 @@ public interface IWeightedList<E> extends Iterable<E>
 
     void add(double weight, E element);
 
-    E get(Random random);
+    E get(RandomSource random);
 
     Collection<E> values();
 

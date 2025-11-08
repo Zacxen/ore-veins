@@ -5,65 +5,131 @@
 
 package com.alcatrazescapee.oreveins.world;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.gen.GenerationStage;
-import net.minecraft.world.gen.feature.*;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.GenerationStep;
+import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.configurations.FeatureConfiguration;
+import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
+import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.neoforged.neoforge.common.world.BiomeModificationContext;
+import net.neoforged.neoforge.common.world.BiomeModifications;
+import net.neoforged.neoforge.common.world.BiomeSelectors;
 
 import com.alcatrazescapee.oreveins.Config;
+import com.alcatrazescapee.oreveins.OreVeins;
 
-/**
- * Manages the removal and replacement of vanilla world gen features
- * Called on config reload
- *
- * @author AlcatrazEscapee
- */
-public class VanillaFeatureManager
+public final class VanillaFeatureManager
 {
-    private static final Map<Biome, List<ConfiguredFeature<?, ?>>> DISABLED_FEATURES = new HashMap<>();
+    private static final Map<ResourceKey<Biome>, List<Holder<PlacedFeature>>> DISABLED_FEATURES = new HashMap<>();
 
-    private static Set<BlockState> disabledBlockStates;
-    private static boolean disableAll;
+    private static Set<BlockState> disabledBlockStates = new HashSet<>();
+    private static boolean disableAll = false;
+    private static boolean registered = false;
+
+    private VanillaFeatureManager() {}
+
+    public static void init()
+    {
+        if (registered)
+        {
+            return;
+        }
+        BiomeModifications.create(new ResourceLocation(OreVeins.MOD_ID, "vanilla_ore_replacements"))
+            .add(BiomeModifications.ModificationPhase.REPLACEMENTS, BiomeSelectors.all(), VanillaFeatureManager::apply);
+        registered = true;
+    }
 
     public static void onConfigReloading()
     {
-        disabledBlockStates = Config.COMMON.disabledBlockStates();
+        disabledBlockStates = new HashSet<>(Config.COMMON.disabledBlockStates());
         disableAll = Config.COMMON.noOres.get();
-
-        ForgeRegistries.BIOMES.forEach(biome -> {
-            List<ConfiguredFeature<?, ?>> features = DISABLED_FEATURES.computeIfAbsent(biome, key -> new ArrayList<>());
-
-            List<ConfiguredFeature<?, ?>> toReAdd = features.stream().filter(x -> !shouldDisable(x)).collect(Collectors.toList());
-            List<ConfiguredFeature<?, ?>> toRemove = biome.getFeatures(GenerationStage.Decoration.UNDERGROUND_ORES).stream().filter(VanillaFeatureManager::shouldDisable).collect(Collectors.toList());
-
-            features.addAll(toRemove);
-            features.removeAll(toReAdd);
-
-            List<ConfiguredFeature<?, ?>> currentFeatures = biome.getFeatures(GenerationStage.Decoration.UNDERGROUND_ORES);
-            currentFeatures.addAll(toReAdd);
-            currentFeatures.removeAll(toRemove);
-        });
     }
 
-    private static boolean shouldDisable(ConfiguredFeature<?, ?> feature)
+    private static void apply(BiomeModificationContext context)
     {
-        if (feature.config instanceof DecoratedFeatureConfig)
+        ResourceKey<Biome> biomeKey = context.getBiomeKey().orElse(null);
+        if (biomeKey == null)
         {
-            Feature<?> oreFeature = ((DecoratedFeatureConfig) feature.config).feature.feature;
-            if (oreFeature == Feature.ORE || oreFeature == Feature.EMERALD_ORE)
+            return;
+        }
+
+        List<Holder<PlacedFeature>> disabledFeatures = DISABLED_FEATURES.computeIfAbsent(biomeKey, key -> new ArrayList<>());
+        BiomeModificationContext.GenerationSettings generation = context.getGenerationSettings();
+        List<Holder<PlacedFeature>> features = generation.getFeatures(GenerationStep.Decoration.UNDERGROUND_ORES);
+
+        if (!disabledFeatures.isEmpty())
+        {
+            Iterator<Holder<PlacedFeature>> iterator = disabledFeatures.iterator();
+            while (iterator.hasNext())
             {
-                IFeatureConfig featureConfig = ((DecoratedFeatureConfig) feature.config).feature.config;
-                if (featureConfig instanceof OreFeatureConfig)
+                Holder<PlacedFeature> holder = iterator.next();
+                if (!shouldDisable(holder))
                 {
-                    OreFeatureConfig oreConfig = (OreFeatureConfig) featureConfig;
-                    return disableAll || disabledBlockStates.contains(oreConfig.state);
+                    features.add(holder);
+                    iterator.remove();
+                }
+            }
+        }
+
+        Iterator<Holder<PlacedFeature>> iterator = features.iterator();
+        while (iterator.hasNext())
+        {
+            Holder<PlacedFeature> holder = iterator.next();
+            if (shouldDisable(holder))
+            {
+                iterator.remove();
+                disabledFeatures.add(holder);
+            }
+        }
+    }
+
+    private static boolean shouldDisable(Holder<PlacedFeature> holder)
+    {
+        if (!disableAll && disabledBlockStates.isEmpty())
+        {
+            return false;
+        }
+        PlacedFeature placedFeature = holder.value();
+        Holder<ConfiguredFeature<?, ?>> configured = placedFeature.feature();
+        FeatureConfiguration configuration = configured.value().config();
+        if (configuration instanceof OreConfiguration oreConfiguration)
+        {
+            if (disableAll)
+            {
+                return isVanillaOre(configured);
+            }
+            for (OreConfiguration.TargetBlockState target : oreConfiguration.targetStates)
+            {
+                if (disabledBlockStates.contains(target.state()))
+                {
+                    return isVanillaOre(configured);
                 }
             }
         }
         return false;
+    }
+
+    private static boolean isVanillaOre(Holder<ConfiguredFeature<?, ?>> configured)
+    {
+        ResourceLocation location = configured.unwrapKey().map(ResourceKey::location).orElse(null);
+        if (location != null)
+        {
+            return location.getNamespace().equals(ResourceLocation.DEFAULT_NAMESPACE);
+        }
+        Feature<?> feature = configured.value().feature();
+        return feature == Feature.ORE || feature == Feature.SCATTERED_ORE;
     }
 }
