@@ -7,9 +7,9 @@ package com.alcatrazescapee.oreveins.command;
 
 import java.util.concurrent.CompletableFuture;
 
-import net.minecraft.command.ISuggestionProvider;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 import com.alcatrazescapee.oreveins.world.vein.VeinManager;
 import com.mojang.brigadier.StringReader;
@@ -24,7 +24,7 @@ import static com.alcatrazescapee.oreveins.OreVeins.MOD_ID;
 
 public class VeinTypeArgument implements ArgumentType<ResourceLocation>
 {
-    private static final DynamicCommandExceptionType VEIN_NOT_FOUND = new DynamicCommandExceptionType(args -> new TranslationTextComponent(MOD_ID + ".command.unknown_vein", args));
+    private static final DynamicCommandExceptionType VEIN_NOT_FOUND = new DynamicCommandExceptionType(args -> Component.translatable(MOD_ID + ".command.unknown_vein", args));
 
 
     static ResourceLocation getVein(CommandContext<?> context, @SuppressWarnings("SameParameterValue") String name)
@@ -46,8 +46,6 @@ public class VeinTypeArgument implements ArgumentType<ResourceLocation>
     @Override
     public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder)
     {
-        StringReader reader = new StringReader(builder.getInput());
-        ISuggestionProvider.suggestIterable(VeinManager.INSTANCE.getKeys(), builder.createOffset(reader.getCursor()));
-        return builder.buildFuture();
+        return SharedSuggestionProvider.suggestResource(VeinManager.INSTANCE.getKeys(), builder);
     }
 }
