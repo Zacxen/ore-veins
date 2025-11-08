@@ -8,9 +8,13 @@ package com.alcatrazescapee.oreveins.world.rule;
 import java.lang.reflect.Type;
 import java.util.function.Predicate;
 
-import com.google.gson.*;
-import net.minecraft.util.JSONUtils;
-import net.minecraft.util.math.BlockPos;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonDeserializer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.GsonHelper;
 
 public class DistanceRule implements Predicate<BlockPos>
 {
@@ -56,12 +60,12 @@ public class DistanceRule implements Predicate<BlockPos>
         @Override
         public DistanceRule deserialize(JsonElement jsonElement, Type typeOfT, JsonDeserializationContext context) throws JsonParseException
         {
-            JsonObject json = JSONUtils.getJsonObject(jsonElement, "origin_distance");
-            int minDistance = JSONUtils.getInt(json, "minimum_distance", 0);
-            int maxDistance = JSONUtils.getInt(json, "maximum_distance", Integer.MAX_VALUE);
-            int originX = JSONUtils.getInt(json, "origin_x", 0);
-            int originZ = JSONUtils.getInt(json, "origin_z", 0);
-            boolean useManhattanDistance = JSONUtils.getBoolean(json, "use_manhattan_distance", false);
+            JsonObject json = GsonHelper.convertToJsonObject(jsonElement, "origin_distance");
+            int minDistance = GsonHelper.getAsInt(json, "minimum_distance", 0);
+            int maxDistance = GsonHelper.getAsInt(json, "maximum_distance", Integer.MAX_VALUE);
+            int originX = GsonHelper.getAsInt(json, "origin_x", 0);
+            int originZ = GsonHelper.getAsInt(json, "origin_z", 0);
+            boolean useManhattanDistance = GsonHelper.getAsBoolean(json, "use_manhattan_distance", false);
             if (!useManhattanDistance)
             {
                 // Square all distances, instead of comparing with square roots later

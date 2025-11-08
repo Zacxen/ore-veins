@@ -64,6 +64,7 @@ public final class OreVeins
         event.enqueueWork(() -> {
             BiomeModifications.addFeature(BiomeSelectors.all(), GenerationStep.Decoration.UNDERGROUND_ORES, ModFeatures.PLACED_VEINS);
 
+            VanillaFeatureManager.init();
             VanillaFeatureManager.onConfigReloading();
         });
     }

@@ -8,12 +8,16 @@ package com.alcatrazescapee.oreveins.world.vein;
 import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 
-import com.google.gson.*;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonDeserializer;
 import com.google.gson.reflect.TypeToken;
-import net.minecraft.block.BlockState;
-import net.minecraft.util.JSONUtils;
+import net.minecraft.util.GsonHelper;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.state.BlockState;
 
 import com.alcatrazescapee.oreveins.util.collections.IWeightedList;
 
@@ -37,7 +41,7 @@ public class Indicator
         this.underStates = underStates;
     }
 
-    public BlockState getStateToGenerate(Random random)
+    public BlockState getStateToGenerate(RandomSource random)
     {
         return states.get(random);
     }
@@ -79,24 +83,24 @@ public class Indicator
                 throw new JsonParseException("Indicator must be a JSON Object");
             }
             JsonObject obj = json.getAsJsonObject();
-            int maxDepth = JSONUtils.getInt(obj, "max_depth", 32);
+            int maxDepth = GsonHelper.getAsInt(obj, "max_depth", 32);
             if (maxDepth <= 0)
             {
                 throw new JsonParseException("Max depth must be > 0");
             }
-            int rarity = JSONUtils.getInt(obj, "rarity", 10);
+            int rarity = GsonHelper.getAsInt(obj, "rarity", 10);
             if (rarity <= 0)
             {
                 throw new JsonParseException("Rarity must be > 0");
             }
-            boolean ignoreLiquids = JSONUtils.getBoolean(obj, "ignore_liquids", false);
+            boolean ignoreLiquids = GsonHelper.getAsBoolean(obj, "ignore_liquids", false);
             IWeightedList<BlockState> states = context.deserialize(obj.get("blocks"), new TypeToken<IWeightedList<BlockState>>() {}.getType());
             if (states.isEmpty())
             {
                 throw new JsonParseException("Block states cannot be empty!");
             }
             List<BlockState> underStates = obj.has("blocks_under") ? context.deserialize(obj.get("blocks_under"), new TypeToken<List<BlockState>>() {}.getType()) : Collections.emptyList();
-            boolean replaceSurface = JSONUtils.getBoolean(obj, "replace_surface", false);
+            boolean replaceSurface = GsonHelper.getAsBoolean(obj, "replace_surface", false);
             return new Indicator(maxDepth, replaceSurface, rarity, ignoreLiquids, states, underStates);
         }
     }

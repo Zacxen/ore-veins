@@ -5,8 +5,13 @@
 
 package com.alcatrazescapee.oreveins.util.collections;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import javax.annotation.Nonnull;
+
+import net.minecraft.util.RandomSource;
 
 public class WeightedList<E> implements IWeightedList<E>
 {
@@ -28,7 +33,7 @@ public class WeightedList<E> implements IWeightedList<E>
         }
     }
 
-    public E get(Random random)
+    public E get(RandomSource random)
     {
         double value = random.nextDouble() * totalWeight;
         return map.higherEntry(value).getValue();

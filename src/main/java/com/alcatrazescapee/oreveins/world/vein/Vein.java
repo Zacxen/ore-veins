@@ -5,10 +5,9 @@
 
 package com.alcatrazescapee.oreveins.world.vein;
 
-import java.util.Random;
-
-import net.minecraft.block.BlockState;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class Vein<T extends VeinType<?>>
 {
@@ -76,7 +75,7 @@ public class Vein<T extends VeinType<?>>
         return getTypeRaw().getChanceToGenerate(this, pos);
     }
 
-    public BlockState getStateToGenerate(BlockPos pos, Random random)
+    public BlockState getStateToGenerate(BlockPos pos, RandomSource random)
     {
         return getTypeRaw().getStateToGenerate(this, pos, random);
     }

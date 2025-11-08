@@ -7,16 +7,16 @@ package com.alcatrazescapee.oreveins.world.vein;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Random;
 import java.util.function.Predicate;
 
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
-import net.minecraft.block.BlockState;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockReader;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.state.BlockState;
 
 import com.alcatrazescapee.oreveins.util.collections.IWeightedList;
 
@@ -41,7 +41,7 @@ public abstract class SingleVeinType<V extends Vein<?>> extends VeinType<V>
         }
     }
 
-    public BlockState getStateToGenerate(V vein, BlockPos pos, Random random)
+    public BlockState getStateToGenerate(V vein, BlockPos pos, RandomSource random)
     {
         return oreStates.get(random);
     }
@@ -52,14 +52,14 @@ public abstract class SingleVeinType<V extends Vein<?>> extends VeinType<V>
     }
 
     @Override
-    public boolean canGenerateAt(IBlockReader world, BlockPos pos)
+    public boolean canGenerateAt(BlockGetter world, BlockPos pos)
     {
         BlockState stoneState = world.getBlockState(pos);
         return stoneStates.test(stoneState) && super.canGenerateAt(world, pos);
     }
 
     @Override
-    public void createVeins(List<Vein<?>> veins, int chunkX, int chunkZ, Random random)
+    public void createVeins(List<Vein<?>> veins, int chunkX, int chunkZ, RandomSource random)
     {
         Vein<?> vein = createVein(chunkX, chunkZ, random);
         if (vein.getType().isValidPos(vein.getPos()))
@@ -68,9 +68,9 @@ public abstract class SingleVeinType<V extends Vein<?>> extends VeinType<V>
         }
     }
 
-    public abstract V createVein(int chunkX, int chunkZ, Random random);
+    public abstract V createVein(int chunkX, int chunkZ, RandomSource random);
 
-    protected final Vein<?> createDefaultVein(int chunkX, int chunkZ, Random random)
+    protected final Vein<?> createDefaultVein(int chunkX, int chunkZ, RandomSource random)
     {
         return new Vein<>(this, defaultStartPos(chunkX, chunkZ, random));
     }

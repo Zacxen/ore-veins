@@ -7,17 +7,28 @@ package com.alcatrazescapee.oreveins.world.rule;
 
 import java.util.function.Predicate;
 
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.dimension.DimensionType;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.dimension.DimensionType;
 
 import com.alcatrazescapee.oreveins.util.json.PredicateDeserializer;
 
 @FunctionalInterface
-public interface IDimensionRule extends Predicate<DimensionType>
+public interface IDimensionRule extends Predicate<IDimensionRule.Context>
 {
-    IDimensionRule DEFAULT = dim -> dim == DimensionType.OVERWORLD;
+    IDimensionRule DEFAULT = context -> context.dimensionKey().equals(Level.OVERWORLD);
 
-    class Deserializer extends PredicateDeserializer<DimensionType, IDimensionRule>
+    record Context(Holder<DimensionType> dimensionType, ResourceKey<Level> dimensionKey) {}
+
+    default boolean test(Holder<DimensionType> dimensionType, ResourceKey<Level> levelKey)
+    {
+        return test(new Context(dimensionType, levelKey));
+    }
+
+    class Deserializer extends PredicateDeserializer<Context, IDimensionRule>
     {
         public static final Deserializer INSTANCE = new Deserializer();
 
@@ -29,12 +40,12 @@ public interface IDimensionRule extends Predicate<DimensionType>
         @Override
         protected IDimensionRule createSingleRule(String name)
         {
-            final ResourceLocation typeName = new ResourceLocation(name);
-            return type -> typeName.equals(type.getRegistryName());
+            final ResourceKey<Level> levelKey = ResourceKey.create(Registries.DIMENSION, new ResourceLocation(name));
+            return context -> context.dimensionKey().equals(levelKey);
         }
 
         @Override
-        protected IDimensionRule createPredicate(Predicate<DimensionType> predicate)
+        protected IDimensionRule createPredicate(Predicate<Context> predicate)
         {
             return predicate::test;
         }
