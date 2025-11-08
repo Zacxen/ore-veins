@@ -22,11 +22,16 @@ import com.google.gson.reflect.TypeToken;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.crafting.CraftingHelper;
+import net.neoforged.neoforge.common.conditions.ConditionalOps;
+import net.neoforged.neoforge.common.conditions.ICondition;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
+import com.mojang.serialization.JsonOps;
 
 import com.alcatrazescapee.oreveins.command.ClearWorldCommand;
 import com.alcatrazescapee.oreveins.util.collections.IWeightedList;
@@ -59,6 +64,7 @@ public class VeinManager extends SimpleJsonResourceReloadListener
             .registerTypeAdapter(VeinType.class, VeinTypeDeserializer.INSTANCE)
             .disableHtmlEscaping()
             .create();
+    private static final ConditionalOps<JsonElement> CONDITION_OPS = new ConditionalOps<>(RegistryOps.create(JsonOps.INSTANCE, RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)), ICondition.IContext.EMPTY);
 
     static
     {
@@ -112,7 +118,7 @@ public class VeinManager extends SimpleJsonResourceReloadListener
             JsonObject json = element.getAsJsonObject();
             try
             {
-                if (CraftingHelper.processConditions(json, "conditions"))
+                if (matchesConditions(json))
                 {
                     veins.put(name, GSON.fromJson(json, VeinType.class));
                 }
@@ -133,5 +139,20 @@ public class VeinManager extends SimpleJsonResourceReloadListener
         // After Veins have Reloaded
         ClearWorldCommand.resetVeinStates();
         VeinsFeature.resetChunkRadius();
+    }
+
+    private static boolean matchesConditions(JsonObject json)
+    {
+        JsonObject conditioned = json;
+        if (json.has("conditions") && !json.has(ConditionalOps.DEFAULT_CONDITIONS_KEY))
+        {
+            conditioned = json.deepCopy();
+            conditioned.add(ConditionalOps.DEFAULT_CONDITIONS_KEY, conditioned.remove("conditions"));
+        }
+        if (conditioned.has(ConditionalOps.DEFAULT_CONDITIONS_KEY))
+        {
+            return ICondition.conditionsMatched(CONDITION_OPS, conditioned);
+        }
+        return true;
     }
 }

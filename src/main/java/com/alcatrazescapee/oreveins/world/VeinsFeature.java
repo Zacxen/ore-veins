@@ -14,6 +14,7 @@ import net.minecraft.core.BlockPos.MutableBlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.RandomSource;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.state.BlockState;
@@ -83,8 +84,9 @@ public class VeinsFeature extends Feature<NoneFeatureConfiguration>
         WorldGenLevel level = context.level();
         RandomSource random = context.random();
         BlockPos origin = context.origin();
-        Holder<DimensionType> dimensionType = level.dimensionType();
-        ResourceKey<Level> dimensionKey = level.dimension();
+        ServerLevel serverLevel = level.getLevel();
+        Holder<DimensionType> dimensionType = serverLevel.dimensionTypeRegistration();
+        ResourceKey<Level> dimensionKey = serverLevel.dimension();
 
         List<Vein<?>> veins = getNearbyVeins(origin.getX() >> 4, origin.getZ() >> 4, level.getSeed(), CHUNK_RADIUS)
             .stream()

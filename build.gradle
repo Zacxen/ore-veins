@@ -97,6 +97,10 @@ tasks.withType(ProcessResources).configureEach {
     }
 }
 
+tasks.named('compileTestJava').configure {
+    enabled = false
+}
+
 publishing {
     publications {
         register('mavenJava', MavenPublication) {

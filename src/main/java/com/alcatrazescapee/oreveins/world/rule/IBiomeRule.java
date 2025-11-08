@@ -5,6 +5,7 @@
 
 package com.alcatrazescapee.oreveins.world.rule;
 
+import java.util.Locale;
 import java.util.function.Predicate;
 
 import com.google.gson.JsonObject;
@@ -16,7 +17,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.world.level.biome.Biome;
-import net.neoforged.neoforge.common.BiomeDictionary;
 
 import com.alcatrazescapee.oreveins.util.json.PredicateDeserializer;
 
@@ -39,13 +39,13 @@ public interface IBiomeRule extends Predicate<Holder<Biome>>
         {
             if ("tag".equals(typeName))
             {
-                final TagKey<Biome> tag = TagKey.create(Registries.BIOME, new ResourceLocation(GsonHelper.getAsString(json, "biomes")));
+                final TagKey<Biome> tag = TagKey.create(Registries.BIOME, ResourceLocation.parse(GsonHelper.getAsString(json, "biomes")));
                 return holder -> holder.is(tag);
             }
             else if ("dictionary".equals(typeName))
             {
-                final BiomeDictionary.Type type = BiomeDictionary.Type.getType(GsonHelper.getAsString(json, "biomes"));
-                return holder -> holder.unwrapKey().map(key -> BiomeDictionary.hasType(key, type)).orElse(false);
+                final TagKey<Biome> tag = dictionaryTag(GsonHelper.getAsString(json, "biomes"));
+                return holder -> holder.is(tag);
             }
             else if ("biome".equals(typeName))
             {
@@ -60,7 +60,7 @@ public interface IBiomeRule extends Predicate<Holder<Biome>>
         @Override
         protected IBiomeRule createSingleRule(String name) throws JsonParseException
         {
-            final ResourceKey<Biome> key = ResourceKey.create(Registries.BIOME, new ResourceLocation(name));
+            final ResourceKey<Biome> key = ResourceKey.create(Registries.BIOME, ResourceLocation.parse(name));
             return holder -> holder.is(key);
         }
 
@@ -69,5 +69,11 @@ public interface IBiomeRule extends Predicate<Holder<Biome>>
         {
             return predicate::test;
         }
+    }
+
+    private static TagKey<Biome> dictionaryTag(String name)
+    {
+        final ResourceLocation location = name.contains(":") ? ResourceLocation.parse(name) : ResourceLocation.fromNamespaceAndPath("forge", "is_" + name.toLowerCase(Locale.ROOT));
+        return TagKey.create(Registries.BIOME, location);
     }
 }

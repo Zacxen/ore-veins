@@ -14,9 +14,9 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.config.ModConfig;
+import net.neoforged.neoforge.common.ModConfigSpec;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.config.ModConfig;
 
 import com.alcatrazescapee.oreveins.util.json.BlockStateDeserializer;
 
@@ -24,30 +24,30 @@ public final class Config
 {
     public static final CommonConfig COMMON;
 
-    private static final ForgeConfigSpec COMMON_SPEC;
+    private static final ModConfigSpec COMMON_SPEC;
 
     static
     {
-        final Pair<CommonConfig, ForgeConfigSpec> specPair = new ForgeConfigSpec.Builder().configure(CommonConfig::new);
+        final Pair<CommonConfig, ModConfigSpec> specPair = new ModConfigSpec.Builder().configure(CommonConfig::new);
         COMMON_SPEC = specPair.getRight();
         COMMON = specPair.getLeft();
     }
 
-    public static void register()
+    public static void register(ModContainer container)
     {
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.COMMON_SPEC);
+        container.registerConfig(ModConfig.Type.COMMON, Config.COMMON_SPEC);
     }
 
     public static final class CommonConfig
     {
-        public final ForgeConfigSpec.BooleanValue noOres;
-        public final ForgeConfigSpec.BooleanValue debugCommands;
-        public final ForgeConfigSpec.IntValue extraChunkRange;
-        public final ForgeConfigSpec.BooleanValue avoidVeinCutoffs;
+        public final ModConfigSpec.BooleanValue noOres;
+        public final ModConfigSpec.BooleanValue debugCommands;
+        public final ModConfigSpec.IntValue extraChunkRange;
+        public final ModConfigSpec.BooleanValue avoidVeinCutoffs;
 
-        private final ForgeConfigSpec.ConfigValue<List<? extends String>> disabledOres;
+        private final ModConfigSpec.ConfigValue<List<? extends String>> disabledOres;
 
-        CommonConfig(ForgeConfigSpec.Builder builder)
+        CommonConfig(ModConfigSpec.Builder builder)
         {
             builder.push("general");
 

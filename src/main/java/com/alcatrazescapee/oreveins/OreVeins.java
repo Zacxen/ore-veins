@@ -5,27 +5,30 @@
 
 package com.alcatrazescapee.oreveins;
 
-import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.GenerationStep;
-import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
-import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
-import net.minecraft.world.level.levelgen.placement.PlacementModifier;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfigEvent;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.world.BiomeModifications;
-import net.neoforged.neoforge.common.world.BiomeSelectors;
+import net.neoforged.neoforge.common.world.BiomeModifier;
+import net.neoforged.neoforge.common.world.BiomeModifiers;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import net.neoforged.neoforge.registries.RegisterEvent;
+import net.neoforged.fml.config.ModConfig;
 
 import com.alcatrazescapee.oreveins.world.ModFeatures;
 import com.alcatrazescapee.oreveins.world.VanillaFeatureManager;
@@ -40,19 +43,21 @@ public final class OreVeins
 
     private static final Logger LOGGER = LogManager.getLogger();
 
-    public OreVeins()
+    public OreVeins(final IEventBus modEventBus, final ModContainer container)
     {
         LOGGER.debug("Constructing");
 
-        Config.register();
+        Config.register(container);
 
-        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         modEventBus.addListener(this::setup);
         modEventBus.addListener(this::registerWorldGen);
         modEventBus.addListener(this::onAddReloadListeners);
         modEventBus.addListener(this::onLoadConfig);
 
         ModFeatures.FEATURES.register(modEventBus);
+        ModFeatures.CONFIGURED_FEATURES.register(modEventBus);
+        ModFeatures.PLACED_FEATURES.register(modEventBus);
+        VanillaFeatureManager.register(modEventBus);
 
         NeoForge.EVENT_BUS.register(ForgeEventHandler.INSTANCE);
     }
@@ -61,22 +66,19 @@ public final class OreVeins
     {
         LOGGER.debug("Setup");
 
-        event.enqueueWork(() -> {
-            BiomeModifications.addFeature(BiomeSelectors.all(), GenerationStep.Decoration.UNDERGROUND_ORES, ModFeatures.PLACED_VEINS);
-
-            VanillaFeatureManager.init();
-            VanillaFeatureManager.onConfigReloading();
-        });
+        event.enqueueWork(VanillaFeatureManager::onConfigReloading);
     }
 
     private void registerWorldGen(final RegisterEvent event)
     {
-        event.register(Registries.CONFIGURED_FEATURE, helper -> helper.register(ModFeatures.CONFIGURED_VEINS,
-            new ConfiguredFeature<>(ModFeatures.VEINS.get(), NoneFeatureConfiguration.INSTANCE)));
-        event.register(Registries.PLACED_FEATURE, helper -> {
-            HolderLookup.RegistryLookup<ConfiguredFeature<?, ?>> lookup = helper.lookup(Registries.CONFIGURED_FEATURE).orElseThrow();
-            Holder<ConfiguredFeature<?, ?>> configured = lookup.getOrThrow(ModFeatures.CONFIGURED_VEINS);
-            helper.register(ModFeatures.PLACED_VEINS, new PlacedFeature(configured, List.<PlacementModifier>of()));
+        event.register(NeoForgeRegistries.Keys.BIOME_MODIFIERS, helper -> {
+            HolderLookup.RegistryLookup<Biome> biomes = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).lookupOrThrow(Registries.BIOME);
+            HolderSet<PlacedFeature> features = HolderSet.direct(ModFeatures.PLACED_VEINS);
+            HolderSet<Biome> allBiomes = HolderSet.direct(biomes.listElements().toList());
+
+            helper.register(ResourceLocation.fromNamespaceAndPath(MOD_ID, "add_veins"),
+                new BiomeModifiers.AddFeaturesBiomeModifier(allBiomes, features, GenerationStep.Decoration.UNDERGROUND_ORES));
+            helper.register(ResourceLocation.fromNamespaceAndPath(MOD_ID, "vanilla_ore_replacements"), VanillaFeatureManager.createModifier());
         });
     }
 
@@ -88,7 +90,8 @@ public final class OreVeins
     private void onLoadConfig(final ModConfigEvent.Reloading event)
     {
         LOGGER.debug("Reloading config - reevaluating vanilla ore vein settings");
-        if (event.getConfig().getType().isServer())
+        ModConfig.Type type = event.getConfig().getType();
+        if (type == ModConfig.Type.SERVER || type == ModConfig.Type.COMMON)
         {
             VanillaFeatureManager.onConfigReloading();
         }

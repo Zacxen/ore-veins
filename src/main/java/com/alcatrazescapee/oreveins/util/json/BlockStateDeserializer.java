@@ -9,15 +9,21 @@ import java.lang.reflect.Type;
 
 import com.google.gson.*;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.neoforged.neoforge.registries.ForgeRegistries;
 
 public enum BlockStateDeserializer implements JsonDeserializer<BlockState>
 {
     INSTANCE;
+
+    private static final HolderLookup.RegistryLookup<Block> BLOCKS = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).lookupOrThrow(Registries.BLOCK);
 
     @Override
     public BlockState deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException
@@ -45,7 +51,7 @@ public enum BlockStateDeserializer implements JsonDeserializer<BlockState>
         StringReader reader = new StringReader(block);
         try
         {
-            return BlockStateParser.parseForBlock(ForgeRegistries.BLOCKS.getHolderLookup(), reader, true);
+            return BlockStateParser.parseForBlock(BLOCKS, reader, true);
         }
         catch (CommandSyntaxException e)
         {
@@ -57,7 +63,7 @@ public enum BlockStateDeserializer implements JsonDeserializer<BlockState>
     {
         try
         {
-            BlockStateParser.parseForBlock(ForgeRegistries.BLOCKS.getHolderLookup(), new StringReader(block), true);
+            BlockStateParser.parseForBlock(BLOCKS, new StringReader(block), true);
             return true;
         }
         catch (CommandSyntaxException e)

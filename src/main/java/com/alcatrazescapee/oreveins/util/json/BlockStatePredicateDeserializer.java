@@ -12,16 +12,22 @@ import java.util.function.Predicate;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.registries.ForgeRegistries;
 
 public enum BlockStatePredicateDeserializer implements JsonDeserializer<Predicate<BlockState>>
 {
     INSTANCE;
+
+    private static final HolderLookup.RegistryLookup<Block> BLOCKS = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).lookupOrThrow(Registries.BLOCK);
 
     @Override
     public Predicate<BlockState> deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException
@@ -51,19 +57,18 @@ public enum BlockStatePredicateDeserializer implements JsonDeserializer<Predicat
         if (value.startsWith("#"))
         {
             String tagName = value.substring(1);
-            TagKey<Block> tagKey = TagKey.create(Registries.BLOCK, new ResourceLocation(tagName));
-            if (ForgeRegistries.BLOCKS.tags().isKnownTagName(tagKey))
+            TagKey<Block> tagKey = TagKey.create(Registries.BLOCK, ResourceLocation.parse(tagName));
+            if (BLOCKS.get(tagKey).isPresent())
             {
                 return stateIn -> stateIn.is(tagKey);
             }
             throw new JsonParseException("Unknown tag: " + tagName);
         }
 
-        Block block = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(value));
-        if (block != null)
-        {
-            return stateIn -> stateIn.getBlock() == block;
-        }
-        throw new JsonParseException("Unknown block: " + value);
+        ResourceLocation id = ResourceLocation.parse(value);
+        return BLOCKS.get(ResourceKey.create(Registries.BLOCK, id))
+            .map(Holder::value)
+            .map(block -> (Predicate<BlockState>) stateIn -> stateIn.getBlock() == block)
+            .orElseThrow(() -> new JsonParseException("Unknown block: " + value));
     }
 }
